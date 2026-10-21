@@ -1,0 +1,13 @@
+[console_scripts]
+mlops-api-smoke = mlops_platform.api_smoke:main
+mlops-container-smoke = mlops_platform.container_smoke:main
+mlops-generate-data = mlops_platform.data:main
+mlops-kafka-admin = mlops_platform.kafka_admin:main
+mlops-kafka-consumer = mlops_platform.kafka_consumer:main
+mlops-mlflow-smoke = mlops_platform.mlflow_smoke:main
+mlops-monitor = mlops_platform.monitoring:main
+mlops-monitor-batch = mlops_platform.monitoring_batch:main
+mlops-predict = mlops_platform.predict:main
+mlops-runs = mlops_platform.experiments:main
+mlops-train = mlops_platform.train:main
+mlops-validate-data = mlops_platform.data_validation:main

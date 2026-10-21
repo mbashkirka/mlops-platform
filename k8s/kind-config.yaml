@@ -1,0 +1,22 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: mlops-platform
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      - containerPort: 30080
+        hostPort: 8002
+        listenAddress: "127.0.0.1"
+        protocol: TCP
+      - containerPort: 30500
+        hostPort: 5052
+        listenAddress: "127.0.0.1"
+        protocol: TCP
+      - containerPort: 30090
+        hostPort: 9093
+        listenAddress: "127.0.0.1"
+        protocol: TCP
+      - containerPort: 30300
+        hostPort: 3002
+        listenAddress: "127.0.0.1"
+        protocol: TCP

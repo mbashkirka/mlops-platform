@@ -1,0 +1,33 @@
+# syntax=docker/dockerfile:1
+
+ARG AIRFLOW_VERSION=3.3.1
+FROM apache/airflow:${AIRFLOW_VERSION}-python3.12
+
+ARG AIRFLOW_VERSION=3.3.1
+
+USER root
+WORKDIR /opt/airflow/project
+
+RUN mkdir -p /opt/airflow/project/data/raw /opt/airflow/project/data/monitoring \
+    /opt/airflow/project/artifacts \
+    && chown -R airflow:root /opt/airflow/project
+
+COPY --chown=airflow:root pyproject.toml README.md ./
+COPY --chown=airflow:root src ./src
+COPY --chown=airflow:root configs ./configs
+
+USER airflow
+
+RUN pip install --no-cache-dir \
+      "apache-airflow==${AIRFLOW_VERSION}" \
+      "joblib>=1.4,<2" \
+      "mlflow>=3.7,<4" \
+      "numpy>=2.0,<3" \
+      "pandas>=2.2,<3" \
+      "pandera[pandas]>=0.32,<1" \
+      "PyYAML>=6,<7" \
+      "scikit-learn>=1.5,<2" \
+    && pip install --no-cache-dir --no-deps . \
+    && pip check
+
+WORKDIR /opt/airflow

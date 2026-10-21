@@ -1,0 +1,57 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kafka-topic-init
+  namespace: mlops-platform
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app: kafka-topic-init
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: topic-init
+        image: mlops-platform:1.0.0
+        imagePullPolicy: IfNotPresent
+        command:
+        - python
+        - -m
+        - mlops_platform.kafka_admin
+        - --config
+        - /app/configs/train.yaml
+        env:
+        - name: MLOPS_KAFKA_ENABLED
+          value: 'true'
+        - name: MLOPS_KAFKA_BOOTSTRAP_SERVERS
+          value: kafka:19092
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 10001
+          runAsGroup: 10001
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        volumeMounts:
+        - name: config
+          mountPath: /app/configs/train.yaml
+          subPath: train.yaml
+          readOnly: true
+      volumes:
+      - name: config
+        configMap:
+          name: mlops-config
+      automountServiceAccountToken: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault

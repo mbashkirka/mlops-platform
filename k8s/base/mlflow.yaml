@@ -1,0 +1,111 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mlflow-state
+  namespace: mlops-platform
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mlflow
+  namespace: mlops-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mlflow
+  template:
+    metadata:
+      labels:
+        app: mlflow
+    spec:
+      securityContext:
+        fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: mlflow
+        image: mlops-platform:1.0.0
+        imagePullPolicy: IfNotPresent
+        command:
+        - mlflow
+        - server
+        - --backend-store-uri
+        - sqlite:////var/lib/mlflow/mlflow.db
+        - --artifacts-destination
+        - /var/lib/mlflow/artifacts
+        - --host
+        - 0.0.0.0
+        - --port
+        - '5000'
+        - --workers
+        - '1'
+        - --allowed-hosts
+        - mlflow:5000,localhost:*,127.0.0.1:*
+        ports:
+        - name: http
+          containerPort: 5000
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 10001
+          runAsGroup: 10001
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            cpu: 100m
+            memory: 512Mi
+          limits:
+            cpu: '1'
+            memory: 2Gi
+        startupProbe:
+          httpGet:
+            path: /health
+            port: http
+          failureThreshold: 30
+          periodSeconds: 5
+          timeoutSeconds: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          periodSeconds: 5
+          timeoutSeconds: 3
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          periodSeconds: 15
+          timeoutSeconds: 3
+        volumeMounts:
+        - name: state
+          mountPath: /var/lib/mlflow
+      volumes:
+      - name: state
+        persistentVolumeClaim:
+          claimName: mlflow-state
+      automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mlflow
+  namespace: mlops-platform
+spec:
+  selector:
+    app: mlflow
+  type: NodePort
+  ports:
+  - name: http
+    port: 5000
+    targetPort: http
+    nodePort: 30500

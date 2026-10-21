@@ -1,0 +1,71 @@
+name: mlops-platform
+
+x-app-image: &app-image
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: mlops-platform:1.0.0
+
+services:
+  mlflow:
+    <<: *app-image
+    command:
+      - mlflow
+      - server
+      - --backend-store-uri
+      - sqlite:////var/lib/mlflow/mlflow.db
+      - --artifacts-destination
+      - /var/lib/mlflow/artifacts
+      - --host
+      - 0.0.0.0
+      - --port
+      - "5000"
+      - --allowed-hosts
+      - mlflow:5000,localhost:*,127.0.0.1:*
+    ports:
+      - "${MLFLOW_HOST_PORT:-5050}:5000"
+    volumes:
+      - mlflow-state:/var/lib/mlflow
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=2).read()
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+
+  bootstrap:
+    <<: *app-image
+    command:
+      - sh
+      - scripts/compose_bootstrap.sh
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      MLOPS_CONFIG: configs/train.yaml
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    restart: "no"
+
+  api:
+    <<: *app-image
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      MLOPS_CONFIG: configs/train.yaml
+    depends_on:
+      mlflow:
+        condition: service_healthy
+      bootstrap:
+        condition: service_completed_successfully
+    ports:
+      - "${API_HOST_PORT:-8000}:8000"
+    restart: unless-stopped
+
+volumes:
+  mlflow-state:

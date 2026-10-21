@@ -1,0 +1,113 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: api
+  namespace: mlops-platform
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: api
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: mlops-platform
+spec:
+  replicas: 2
+  minReadySeconds: 5
+  progressDeadlineSeconds: 300
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+      - name: api
+        image: mlops-platform:1.0.0
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: MLFLOW_TRACKING_URI
+          value: http://mlflow:5000
+        - name: MLOPS_CONFIG
+          value: /app/configs/train.yaml
+        - name: MLOPS_KAFKA_ENABLED
+          value: 'true'
+        - name: MLOPS_KAFKA_BOOTSTRAP_SERVERS
+          value: kafka:19092
+        - name: MLOPS_KAFKA_PREDICTION_TOPIC
+          value: mlops.predictions.v1
+        ports:
+        - name: http
+          containerPort: 8000
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 10001
+          runAsGroup: 10001
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: '1'
+            memory: 1Gi
+        startupProbe:
+          httpGet:
+            path: /health
+            port: http
+          failureThreshold: 30
+          periodSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: http
+          periodSeconds: 5
+          timeoutSeconds: 3
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          periodSeconds: 15
+          timeoutSeconds: 3
+        volumeMounts:
+        - name: config
+          mountPath: /app/configs/train.yaml
+          subPath: train.yaml
+          readOnly: true
+      volumes:
+      - name: config
+        configMap:
+          name: mlops-config
+      automountServiceAccountToken: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  namespace: mlops-platform
+spec:
+  selector:
+    app: api
+  type: NodePort
+  ports:
+  - name: http
+    port: 8000
+    targetPort: http
+    nodePort: 30080

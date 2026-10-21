@@ -1,0 +1,69 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mlops-platform"
+version = "1.0.0"
+description = "End-to-end production-oriented MLOps reference platform"
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+  "joblib>=1.4,<2",
+  "mlflow>=3.7,<4",
+  "pydantic>=2.12,<3",
+  "numpy>=2.0,<3",
+  "pandas>=2.2,<3",
+  "pandera[pandas]>=0.32,<1",
+  "PyYAML>=6,<7",
+  "scikit-learn>=1.5,<2",
+]
+
+[project.optional-dependencies]
+serve = [
+  "confluent-kafka>=2.15,<3",
+  "fastapi>=0.141,<1",
+  "prometheus-client>=0.22,<1",
+  "uvicorn>=0.52,<1",
+]
+dev = [
+  "confluent-kafka>=2.15,<3",
+  "dvc>=3.60,<4",
+  "fastapi>=0.141,<1",
+  "httpx2>=2.10,<3",
+  "prometheus-client>=0.22,<1",
+  "pytest>=8,<10",
+  "ruff>=0.12,<1",
+  "uvicorn>=0.52,<1",
+]
+
+[project.scripts]
+mlops-generate-data = "mlops_platform.data:main"
+mlops-validate-data = "mlops_platform.data_validation:main"
+mlops-train = "mlops_platform.train:main"
+mlops-predict = "mlops_platform.predict:main"
+mlops-runs = "mlops_platform.experiments:main"
+mlops-mlflow-smoke = "mlops_platform.mlflow_smoke:main"
+mlops-api-smoke = "mlops_platform.api_smoke:main"
+mlops-container-smoke = "mlops_platform.container_smoke:main"
+mlops-monitor-batch = "mlops_platform.monitoring_batch:main"
+mlops-monitor = "mlops_platform.monitoring:main"
+mlops-kafka-admin = "mlops_platform.kafka_admin:main"
+mlops-kafka-consumer = "mlops_platform.kafka_consumer:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.format]
+quote-style = "double"

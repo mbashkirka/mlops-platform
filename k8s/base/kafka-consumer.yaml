@@ -1,0 +1,99 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kafka-events
+  namespace: mlops-platform
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-consumer
+  namespace: mlops-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-consumer
+  template:
+    metadata:
+      labels:
+        app: kafka-consumer
+    spec:
+      securityContext:
+        fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: consumer
+        image: mlops-platform:1.0.0
+        imagePullPolicy: IfNotPresent
+        command:
+        - python
+        - -m
+        - mlops_platform.kafka_consumer
+        - --config
+        - /app/configs/train.yaml
+        - --event-log
+        - /var/lib/mlops/events/prediction_events.jsonl
+        - --batch
+        - /var/lib/mlops/monitoring/current_batch.csv
+        env:
+        - name: MLOPS_KAFKA_ENABLED
+          value: 'true'
+        - name: MLOPS_KAFKA_BOOTSTRAP_SERVERS
+          value: kafka:19092
+        - name: MLOPS_KAFKA_PREDICTION_TOPIC
+          value: mlops.predictions.v1
+        - name: MLOPS_KAFKA_CONSUMER_GROUP
+          value: mlops-monitoring-v1
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 10001
+          runAsGroup: 10001
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        readinessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - test -f /tmp/mlops-kafka-consumer.ready
+          periodSeconds: 5
+        livenessProbe:
+          exec:
+            command:
+            - sh
+            - -c
+            - test -f /tmp/mlops-kafka-consumer.ready
+          periodSeconds: 15
+        volumeMounts:
+        - name: config
+          mountPath: /app/configs/train.yaml
+          subPath: train.yaml
+          readOnly: true
+        - name: events
+          mountPath: /var/lib/mlops
+      volumes:
+      - name: config
+        configMap:
+          name: mlops-config
+      - name: events
+        persistentVolumeClaim:
+          claimName: kafka-events
+      automountServiceAccountToken: false

@@ -1,0 +1,36 @@
+stages:
+  generate:
+    cmd: python -m mlops_platform.data --config configs/train.yaml --output data/raw/dataset.csv
+    deps:
+      - configs/train.yaml
+      - src/mlops_platform/data.py
+    outs:
+      - data/raw/dataset.csv
+
+  validate:
+    cmd: python -m mlops_platform.data_validation --config configs/train.yaml --input data/raw/dataset.csv --report artifacts/data_validation.json --manifest artifacts/data_manifest.json
+    deps:
+      - configs/train.yaml
+      - data/raw/dataset.csv
+      - src/mlops_platform/data_validation.py
+    outs:
+      - artifacts/data_validation.json
+      - artifacts/data_manifest.json
+
+  train:
+    cmd: python -m mlops_platform.train --config configs/train.yaml --data data/raw/dataset.csv
+    deps:
+      - configs/train.yaml
+      - data/raw/dataset.csv
+      - artifacts/data_validation.json
+      - artifacts/data_manifest.json
+      - src/mlops_platform/train.py
+      - src/mlops_platform/monitoring.py
+    outs:
+      - artifacts/model.joblib
+      - artifacts/model_meta.json
+      - artifacts/mlflow_run.json
+      - artifacts/reference_profile.json
+    metrics:
+      - artifacts/metrics.json:
+          cache: false
